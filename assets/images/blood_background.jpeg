@@ -1,0 +1,668 @@
+<?php
+session_start();
+require_once "../config/database.php";
+
+if (!isset($_SESSION["user_id"])) {
+    header("Location: ../auth/login.php");
+    exit;
+}
+
+if ($_SESSION["user_role"] != "requester") {
+    header("Location: ../dashboard.php");
+    exit;
+}
+
+$user_id = $_SESSION["user_id"];
+
+$stmt = $conn->prepare("
+    SELECT COUNT(*) AS unread_count
+    FROM notifications
+    WHERE user_id = ?
+    AND is_read = 0
+");
+
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+
+$result = $stmt->get_result();
+$notification_data = $result->fetch_assoc();
+
+$unread_count = $notification_data["unread_count"];
+
+$stmt->close();
+?>
+
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>BloodConnect | Requester Dashboard</title>
+
+<style>
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+
+    font-family: Arial, Helvetica, sans-serif;
+
+    min-height: 100vh;
+
+    background:
+        linear-gradient(
+            rgba(35, 0, 8, 0.78),
+            rgba(80, 0, 15, 0.72)
+        ),
+        url("../assets/images/blood-background.jpg");
+
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+
+    color: white;
+}
+
+
+/* Navigation */
+
+.navbar {
+
+    width: 100%;
+
+    padding: 20px 7%;
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    background: rgba(255,255,255,0.08);
+
+    backdrop-filter: blur(18px);
+
+    -webkit-backdrop-filter: blur(18px);
+
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+
+    position: sticky;
+
+    top: 0;
+
+    z-index: 10;
+}
+
+.logo {
+
+    font-size: 25px;
+
+    font-weight: bold;
+
+    letter-spacing: 1px;
+}
+
+.logo span {
+
+    color: #ff4d67;
+}
+
+
+.nav-links {
+
+    display: flex;
+
+    gap: 10px;
+
+    align-items: center;
+
+    flex-wrap: wrap;
+}
+
+.nav-links a {
+
+    color: white;
+
+    text-decoration: none;
+
+    padding: 10px 15px;
+
+    border-radius: 12px;
+
+    transition: 0.3s;
+
+    font-size: 14px;
+}
+
+.nav-links a:hover {
+
+    background: rgba(255,255,255,0.15);
+
+    transform: translateY(-2px);
+}
+
+
+.notification {
+
+    background: #ff334f;
+
+    padding: 3px 8px;
+
+    border-radius: 20px;
+
+    font-size: 12px;
+
+    margin-left: 4px;
+}
+
+
+/* Main */
+
+.container {
+
+    width: 86%;
+
+    max-width: 1200px;
+
+    margin: 60px auto;
+}
+
+
+/* Hero */
+
+.hero {
+
+    padding: 45px;
+
+    border-radius: 28px;
+
+    background: rgba(255,255,255,0.10);
+
+    backdrop-filter: blur(20px);
+
+    -webkit-backdrop-filter: blur(20px);
+
+    border: 1px solid rgba(255,255,255,0.18);
+
+    box-shadow: 0 25px 60px rgba(0,0,0,0.35);
+
+    margin-bottom: 35px;
+}
+
+.hero h1 {
+
+    font-size: 42px;
+
+    margin-bottom: 15px;
+}
+
+.hero h1 span {
+
+    color: #ff667c;
+}
+
+.hero p {
+
+    max-width: 700px;
+
+    line-height: 1.7;
+
+    color: #f4dfe2;
+
+    font-size: 16px;
+}
+
+.welcome {
+
+    margin-top: 20px;
+
+    font-size: 17px;
+}
+
+
+/* Main action */
+
+.primary-action {
+
+    display: inline-block;
+
+    margin-top: 25px;
+
+    padding: 14px 24px;
+
+    background: #e63950;
+
+    color: white;
+
+    text-decoration: none;
+
+    border-radius: 14px;
+
+    font-weight: bold;
+
+    transition: 0.3s;
+
+    box-shadow: 0 8px 25px rgba(230,57,80,0.35);
+}
+
+.primary-action:hover {
+
+    transform: translateY(-3px);
+
+    background: #ff4d67;
+}
+
+
+/* Cards */
+
+.section-title {
+
+    margin-bottom: 20px;
+
+    font-size: 25px;
+}
+
+.cards {
+
+    display: grid;
+
+    grid-template-columns: repeat(4, 1fr);
+
+    gap: 20px;
+}
+
+.card {
+
+    padding: 25px;
+
+    min-height: 190px;
+
+    border-radius: 22px;
+
+    background: rgba(255,255,255,0.10);
+
+    backdrop-filter: blur(18px);
+
+    -webkit-backdrop-filter: blur(18px);
+
+    border: 1px solid rgba(255,255,255,0.16);
+
+    box-shadow: 0 15px 35px rgba(0,0,0,0.25);
+
+    transition: 0.3s;
+}
+
+.card:hover {
+
+    transform: translateY(-8px);
+
+    background: rgba(255,255,255,0.15);
+
+    border-color: rgba(255,255,255,0.28);
+}
+
+.card-icon {
+
+    font-size: 35px;
+
+    margin-bottom: 15px;
+}
+
+.card h3 {
+
+    margin-bottom: 10px;
+
+    font-size: 19px;
+}
+
+.card p {
+
+    color: #eadcdf;
+
+    font-size: 14px;
+
+    line-height: 1.6;
+
+    margin-bottom: 18px;
+}
+
+.card a {
+
+    color: #ff8292;
+
+    text-decoration: none;
+
+    font-weight: bold;
+
+    font-size: 14px;
+}
+
+.card a:hover {
+
+    color: white;
+}
+
+
+/* Information section */
+
+.info {
+
+    margin-top: 35px;
+
+    padding: 30px;
+
+    border-radius: 22px;
+
+    background: rgba(255,255,255,0.08);
+
+    backdrop-filter: blur(18px);
+
+    border: 1px solid rgba(255,255,255,0.15);
+}
+
+.info h2 {
+
+    margin-bottom: 15px;
+}
+
+.info p {
+
+    line-height: 1.7;
+
+    color: #f0dfe2;
+}
+
+
+/* Footer */
+
+.footer {
+
+    text-align: center;
+
+    margin-top: 50px;
+
+    padding: 25px;
+
+    color: #d9bfc3;
+
+    font-size: 13px;
+}
+
+
+/* Mobile */
+
+@media (max-width: 900px) {
+
+    .cards {
+
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .navbar {
+
+        flex-direction: column;
+
+        gap: 15px;
+    }
+
+}
+
+@media (max-width: 600px) {
+
+    .container {
+
+        width: 92%;
+
+        margin: 30px auto;
+    }
+
+    .hero {
+
+        padding: 28px;
+    }
+
+    .hero h1 {
+
+        font-size: 30px;
+    }
+
+    .cards {
+
+        grid-template-columns: 1fr;
+    }
+
+    .nav-links {
+
+        justify-content: center;
+    }
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- Navigation -->
+
+<nav class="navbar">
+
+
+<div class="logo">
+    🩸 <span>Blood</span>Connect
+</div>
+
+<div class="nav-links">
+
+    <a href="dashboard.php">Dashboard</a>
+
+    <a href="search_donors.php">
+        Find Donors
+    </a>
+
+    <a href="my_requests.php">
+        My Requests
+    </a>
+
+    <a href="notifications.php">
+        🔔 Notifications
+
+        <?php if ($unread_count > 0): ?>
+
+            <span class="notification">
+                <?php echo $unread_count; ?>
+            </span>
+
+        <?php endif; ?>
+
+    </a>
+
+    <a href="../auth/logout.php">
+        Logout
+    </a>
+
+</div>
+
+
+</nav>
+
+<main class="container">
+
+<!-- Hero -->
+
+<section class="hero">
+
+
+<h1>
+    Help Starts With a
+    <span>Blood Request.</span>
+</h1>
+
+<p>
+    Welcome to BloodConnect — a platform designed to connect
+    people who need blood with available donors. Create a blood
+    request, find matching donors and keep track of your request
+    from one place.
+</p>
+
+<p class="welcome">
+
+    Welcome back,
+    <strong>
+        <?php echo htmlspecialchars($_SESSION["user_name"]); ?>
+    </strong>
+    ❤️
+
+</p>
+
+<a href="create_request.php" class="primary-action">
+    🩸 Create Blood Request
+</a>
+
+
+</section>
+
+<!-- Options -->
+
+<h2 class="section-title">
+    What do you need today?
+</h2>
+
+<div class="cards">
+
+
+<div class="card">
+
+    <div class="card-icon">🔎</div>
+
+    <h3>Find Blood Donors</h3>
+
+    <p>
+        Search for available donors based on blood group
+        and location.
+    </p>
+
+    <a href="search_donors.php">
+        Search Donors →
+    </a>
+
+</div>
+
+
+<div class="card">
+
+    <div class="card-icon">🩸</div>
+
+    <h3>Create Request</h3>
+
+    <p>
+        Need blood for a patient? Create a request and
+        let matching donors know.
+    </p>
+
+    <a href="create_request.php">
+        Request Blood →
+    </a>
+
+</div>
+
+
+<div class="card">
+
+    <div class="card-icon">📋</div>
+
+    <h3>My Requests</h3>
+
+    <p>
+        View your blood requests and check their current
+        status.
+    </p>
+
+    <a href="my_requests.php">
+        Track Requests →
+    </a>
+
+</div>
+
+
+<div class="card">
+
+    <div class="card-icon">🔔</div>
+
+    <h3>Notifications</h3>
+
+    <p>
+
+        Stay updated when a donor responds to your request
+        or when your request changes status.
+
+    </p>
+
+    <a href="notifications.php">
+        View Notifications →
+
+        <?php if ($unread_count > 0): ?>
+
+            <span class="notification">
+                <?php echo $unread_count; ?>
+            </span>
+
+        <?php endif; ?>
+
+    </a>
+
+</div>
+
+
+</div>
+
+<!-- Information -->
+
+<section class="info">
+
+
+<h2>❤️ Every Blood Request Matters</h2>
+
+<p>
+    Finding blood during an emergency can be stressful.
+    BloodConnect makes the process easier by helping requesters
+    connect with available donors. Create your request with the
+    required blood group, hospital details and urgency so that
+    potential donors can respond.
+</p>
+
+<br>
+
+<p>
+    Once a donor responds, you can track the request through
+    your dashboard and confirm the donation after it is completed.
+    Together, small actions can help save lives.
+</p>
+
+
+</section>
+
+<div class="footer">
+
+
+🩸 BloodConnect &nbsp; | &nbsp;
+Connecting Blood Donors With People In Need
+
+
+</div>
+
+</main>
+
+</body>
+
+</html>
